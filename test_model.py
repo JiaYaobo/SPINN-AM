@@ -13,6 +13,7 @@ from spinn import all_pen_loss
 from data_gen.data_generator import DataGenerator
 from data_gen.data_gen_funs import six_varaible_linear_func1, six_varaible_linear_func2
 from data_gen.dataloader import dataloader
+from altmin_schedular import allocate_model, collect_data_groups
 
 if __name__ == '__main__':
     key1 = jrand.PRNGKey(0)
@@ -30,4 +31,7 @@ if __name__ == '__main__':
     group1 = np.ones((dt2.x.shape[0], 1))
     group = np.vstack([group0, group1])
     x_, y_, group_ = next(dataloader([x, y, group], 32, key=key3))
-    
+    z = allocate_model([m1, m2], x_, y_)
+    print(z)
+    x0 = collect_data_groups(0, x_, y_, group_, z)
+    print(x0.shape)

@@ -44,7 +44,9 @@ class FNN(eqx.Module):
                  *,
                  key: jrand.PRNGKey):
         super().__init__()
-        print("initialize the neural network\n")
+
+        print("initialize the neural network")
+
         self.data_classes = int(data_classes)
         self.use_bias = use_bias
         self.ridge_param = ridge_param
@@ -54,6 +56,7 @@ class FNN(eqx.Module):
         self.adam_learn_rate = adam_learn_rate
         self.adam_epsilon = adam_epsilon
         self.lasso_param = self.lasso_param_ratio * self.group_lasso_param
+
         if isinstance(layer_sizes, int):
             if layer_nums is None:
                 ValueError(

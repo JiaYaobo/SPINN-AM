@@ -1,12 +1,6 @@
-import argparse
-
-import jax
 import jax.numpy as jnp
-import jax.random as jrand
 import jax.tree_util as jtu
 import equinox as eqx
-import optax
-from optax import GradientTransformation
 
 from model import FNN
 from spinn import all_pen_loss, grad_loss

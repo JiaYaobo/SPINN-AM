@@ -7,6 +7,11 @@ import equinox as eqx
 from jax import vmap
 from jax import tree_util as jtu
 
+@eqx.filter_jit
+def absolute_error(model, x, y):
+    print(model)
+    y_pred = model(x)
+    return jnp.abs(y - y_pred)
 
 @eqx.filter_jit
 def mean_square_loss(model, x: jnp.ndarray, y_true: jnp.ndarray):
