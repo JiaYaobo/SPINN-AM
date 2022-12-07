@@ -3,7 +3,6 @@ import argparse
 import numpy as np
 import jax.numpy as jnp
 import jax.random as jrand
-import jax.tree_util as jtu
 import equinox as eqx
 import optax
 
@@ -12,6 +11,7 @@ from train_step import make_step, make_step_adam_prox, make_step_prox
 from data_gen.data_gen_funs import six_varaible_linear_func1, six_varaible_linear_func2
 from data_gen.data_generator import DataGenerator
 from data_gen.dataloader import dataloader
+from altmin_schedular import allocate_model, collect_data_groups
 
 
 def get_dataset(num_p, num_groups, n_obs, func_list):
@@ -38,39 +38,43 @@ def train(args):
     key = jrand.PRNGKey(args.seed)
     loader_key, *model_keys = jrand.split(key, args.num_groups + 1)
 
-    model = FNN(
-        layer_sizes=args.layer_sizes,
-        data_classes=args.data_classes,
-        is_relu=args.is_relu,
-        layer_nums=args.layer_nums,
-        use_bias=args.use_bias,
-        lasso_param_ratio=args.lasso_param_ratio,
-        group_lasso_param=args.group_lasso_param,
-        ridge_param=args.ridge_param,
-        init_learn_rate=args.init_learn_rate,
-        adam_learn_rate=args.adam_learn_rate,
-        adam_epsilon=args.adam_epsilon,
-        key=loader_key
-    )
-
+    models= []
+    opt_states = []
     optim = optax.adam(args.adam_learn_rate, eps=args.adam_epsilon)
-    opt_state = optim.init(eqx.filter(model, eqx.is_inexact_array))
+    for i in range(args.num_groups):
+        model = FNN(
+            layer_sizes=args.layer_sizes,
+            data_classes=args.data_classes,
+            is_relu=args.is_relu,
+            layer_nums=args.layer_nums,
+            use_bias=args.use_bias,
+            lasso_param_ratio=args.lasso_param_ratio,
+            group_lasso_param=args.group_lasso_param,
+            ridge_param=args.ridge_param,
+            init_learn_rate=args.init_learn_rate,
+            adam_learn_rate=args.adam_learn_rate,
+            adam_epsilon=args.adam_epsilon,
+            key=model_keys[i]
+        )
+        opt_state = optim.init(eqx.filter(model, eqx.is_inexact_array))
+        models.append(model)
+        opt_states.append(opt_state)
 
     x, y, group = get_dataset(args.num_p, args.num_groups, args.n_obs, func_list=[
-                              six_varaible_linear_func1])
+                              six_varaible_linear_func1, six_varaible_linear_func2])
+
     for step, (xi, yi, groupi) in zip(range(args.max_iters), dataloader(
             [x, y, group], args.batch_size, key=loader_key)
     ):
-        all_loss, smooth_loss, unpen_loss, model, opt_state = make_step_adam_prox(
-            model, optim, opt_state, xi, yi)
-        if step % args.print_every == 0 or step == args.max_iters - 1:
-            print(
-                f"Step: {step}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}")
-    
-    print(model.layers[0].weight[:,0])
-    print(model.layers[0].weight[0,:])
-
-
+        z = allocate_model(models, xi, yi)
+        for i in range(args.num_groups):
+            xi_, yi_, groupi_ = collect_data_groups(i, xi, yi, groupi, z)
+            all_loss, smooth_loss, unpen_loss, models[i], opt_states[i] = make_step_adam_prox(
+                models[i], optim, opt_states[i], xi_, yi_)
+            if step % args.print_every == 0 or step == args.max_iters - 1:
+                group_acc = jnp.mean(groupi_ == i)
+                print(
+                    f"Model: {i}, Step: {step}, Group Acc: {group_acc}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}")
 
 def main():
     parser = argparse.ArgumentParser()
