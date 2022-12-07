@@ -2,19 +2,14 @@ import jax
 import jax.numpy as jnp
 import jax.nn as jnn
 import jax.random as jrand
-import optax
 import equinox as eqx
-import equinox.nn as nn
 
-from jax import vmap, jit, lax
+from jax import vmap
 from jax import tree_util as jtu
-
-from typing import Sequence, Any, Callable
-from .model import FNN
 
 
 @eqx.filter_jit
-def mean_square_loss(model: FNN, x: jnp.ndarray, y_true: jnp.ndarray):
+def mean_square_loss(model, x: jnp.ndarray, y_true: jnp.ndarray):
     y_pred = vmap(model, in_axes=0)(x)
     return jnp.mean((y_pred - y_true) ** 2)
 
@@ -40,13 +35,13 @@ def l1_loss(x):
 
 
 @eqx.filter_jit
-def ridge_reg(model: FNN):
-    layers = jtu.tree_flatten(model.layers[1:])
-    return jnp.sum(jnp.asarray(jtu.tree_map(l2_loss, layers[0])))
+def ridge_reg(model):
+    layers, _ = jtu.tree_flatten(model.layers[1:])
+    return jnp.sum(jnp.asarray(jtu.tree_map(l2_loss, layers)))
 
 
 @eqx.filter_value_and_grad
-def ridge_loss(model: FNN):
+def ridge_loss(model):
     loss = ridge_reg(model)
     return 0.5 * model.ridge_param * loss
 
@@ -58,15 +53,22 @@ def l1_reg(model):
 
 
 @eqx.filter_jit
-def l2_reg(model: FNN):
+def l2_reg(model):
     w = model.layers[0].weight
     return jnp.sum(jnp.sqrt(jnp.sum(w ** 2, axis=1)))
 
 
+@eqx.filter_value_and_grad
+def grad_loss(model, x, y):
+    y_pred = jax.vmap(model, in_axes=(0))(x)
+    return jnp.mean((y - y_pred) ** 2)
+
+
 @eqx.filter_jit
-def all_pen_loss(model, loss_func, data):
-    x, y = data.x, data.y
-    unpen_loss, unpen_grads = eqx.filter_value_and_grad(loss_func)(model, x, y)
+def all_pen_loss(model, x, y):
+    unpen_loss, unpen_grads = grad_loss(model ,x, y)
     rdg_loss, pen_grads = ridge_loss(model)
     grads = eqx.apply_updates(unpen_grads, pen_grads)
-    return rdg_loss + (1 - model.group_lasso_param) * l1_reg(model) + model.group_lasso_param * l2_reg(model) + unpen_loss, rdg_loss + unpen_loss, unpen_loss, grads
+    smooth_loss = rdg_loss + unpen_loss
+    all_loss = smooth_loss + (1 - model.group_lasso_param) * l1_reg(model) + model.group_lasso_param * l2_reg(model)
+    return all_loss, smooth_loss, unpen_loss, grads

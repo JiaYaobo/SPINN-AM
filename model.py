@@ -1,8 +1,6 @@
 from typing import Sequence, Callable
 
-import jax
 import jax.nn as jnn
-import jax.numpy as jnp
 import jax.random as jrand
 from jax import jit
 import equinox as eqx
@@ -19,7 +17,7 @@ class FNN(eqx.Module):
     layer_sizes: Sequence[int]
     is_relu: int
     layers: nn.Sequential
-    use_bias: bool = False
+    use_bias: bool
 
     ridge_param: float
     lasso_param: float
@@ -36,7 +34,7 @@ class FNN(eqx.Module):
                  data_classes: int = 2,
                  is_relu: int = 1,
                  layer_nums: int | None = 0,
-                 use_bias: bool = False,
+                 use_bias: bool = True,
                  lasso_param_ratio=0.1,
                  group_lasso_param=0.1,
                  ridge_param=0.1,

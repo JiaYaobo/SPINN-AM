@@ -11,6 +11,5 @@ import equinox as eqx
 import equinox.nn as nn
 import optax
 
-def judge_group(x, models):
-    pass
+
 

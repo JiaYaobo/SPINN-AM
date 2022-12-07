@@ -1,10 +1,11 @@
 import numpy as np
 
 class Dataset:
-    def __init__(self, x, y, y_true=None):
+    def __init__(self, x, y, y_true=None, group=None):
         self.x = x
         self.y = y
         self.y_true = y_true
+        self.group = group
 
     def create_restricted(self, max_relevant_idx):
         return Dataset(
@@ -13,12 +14,12 @@ class Dataset:
                 self.y_true)
 
 class DataGenerator:
-    def __init__(self, num_p, func, is_classification=False, snr=0):
+    def __init__(self, num_p, func, is_classification=False, snr=0, group=None):
         self.num_p = num_p
         self.func = func
-        print(is_classification)
         self.is_classification = is_classification
         self.snr = snr
+        self.group=group
 
     def create_data(self, n_obs):
         assert n_obs > 0
@@ -37,4 +38,4 @@ class DataGenerator:
             true_ys = self.func(xs)
             true_ys = np.reshape(true_ys, (true_ys.size, 1))
             y = np.array(np.random.random_sample((true_ys.size, 1)) < true_ys, dtype=int)
-        return Dataset(xs, y, true_ys)
+        return Dataset(xs, y, true_ys, group=self.group)
