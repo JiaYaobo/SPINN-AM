@@ -2,13 +2,10 @@ from typing import Sequence
 
 import jax.numpy as jnp
 import jax.tree_util as jtu
-from jax import vmap, lax
+from jax import vmap
 import equinox as eqx
 
 from model import FNN
-from spinn import absolute_error
-
-
 
 
 def allocate_model(models: Sequence[FNN], x, y):
@@ -24,6 +21,6 @@ def allocate_model(models: Sequence[FNN], x, y):
 
 
 def collect_data_groups(which_group, x, y, group, z):
-    return x[z==which_group, ], y[z==which_group], group[z==which_group]    
+    return x[z==which_group, ], y[z==which_group, ], group[z==which_group, ]    
 
 
