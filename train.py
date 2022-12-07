@@ -38,7 +38,7 @@ def train(args):
     key = jrand.PRNGKey(args.seed)
     loader_key, *model_keys = jrand.split(key, args.num_groups + 1)
 
-    models= []
+    models = []
     opt_states = []
     optim = optax.adam(args.adam_learn_rate, eps=args.adam_epsilon)
     for i in range(args.num_groups):
@@ -54,13 +54,13 @@ def train(args):
             init_learn_rate=args.init_learn_rate,
             adam_learn_rate=args.adam_learn_rate,
             adam_epsilon=args.adam_epsilon,
-            key=model_keys[i]
+            key=loader_key
         )
         opt_state = optim.init(eqx.filter(model, eqx.is_inexact_array))
         models.append(model)
         opt_states.append(opt_state)
 
-    x, y, group = get_dataset(args.num_p, args.num_groups, args.n_obs, func_list=[
+    x, y, group = get_dataset(args.num_p, args.num_groups, [2000, 1000], func_list=[
                               six_varaible_linear_func1, six_varaible_linear_func2])
 
     for step, (xi, yi, groupi) in zip(range(args.max_iters), dataloader(
@@ -75,6 +75,11 @@ def train(args):
                 group_acc = jnp.mean(groupi_ == i)
                 print(
                     f"Model: {i}, Step: {step}, Group Acc: {group_acc}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}")
+        if step % args.print_every == 0 or step == args.max_iters - 1:
+            tot_group_acc = jnp.mean(groupi == z)
+            print(
+                f"Total Group Acc {tot_group_acc}")
+
 
 def main():
     parser = argparse.ArgumentParser()
