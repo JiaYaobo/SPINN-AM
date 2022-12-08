@@ -3,12 +3,13 @@ import argparse
 import numpy as np
 import jax.numpy as jnp
 import jax.random as jrand
+import jax.test_util as jtu
 import equinox as eqx
 import optax
 
 from model import FNN
-from train_step import make_step, make_step_adam_prox, make_step_prox
-from data_gen.data_gen_funs import six_varaible_linear_func1, six_varaible_linear_func2
+from train_step import make_step_adam_prox
+from data_gen.data_gen_funs import six_varaible_linear_func1, six_varaible_linear_func2, six_variable_additive_func, six_variable_multivar_func
 from data_gen.data_generator import DataGenerator
 from data_gen.dataloader import dataloader
 from altmin_schedular import allocate_model, collect_data_groups
@@ -40,7 +41,7 @@ def train(args):
 
     models = []
     opt_states = []
-    optim = optax.adam(args.adam_learn_rate, eps=args.adam_epsilon)
+    optims = []
     for i in range(args.num_groups):
         model = FNN(
             layer_sizes=args.layer_sizes,
@@ -54,14 +55,16 @@ def train(args):
             init_learn_rate=args.init_learn_rate,
             adam_learn_rate=args.adam_learn_rate,
             adam_epsilon=args.adam_epsilon,
-            key=loader_key
+            key=model_keys[i]
         )
+        optim = optax.adam(args.adam_learn_rate, eps=args.adam_epsilon)
         opt_state = optim.init(eqx.filter(model, eqx.is_inexact_array))
         models.append(model)
         opt_states.append(opt_state)
+        optims.append(optim)
 
-    x, y, group = get_dataset(args.num_p, args.num_groups, [2000, 1000], func_list=[
-                              six_varaible_linear_func1, six_varaible_linear_func2])
+    x, y, group = get_dataset(args.num_p, args.num_groups, [5000, 5000], func_list=[
+                              six_variable_multivar_func, six_variable_additive_func])
 
     for step, (xi, yi, groupi) in zip(range(args.max_iters), dataloader(
             [x, y, group], args.batch_size, key=loader_key)
@@ -70,15 +73,12 @@ def train(args):
         for i in range(args.num_groups):
             xi_, yi_, groupi_ = collect_data_groups(i, xi, yi, groupi, z)
             all_loss, smooth_loss, unpen_loss, models[i], opt_states[i] = make_step_adam_prox(
-                models[i], optim, opt_states[i], xi_, yi_)
+                models[i], optims[i], opt_states[i], xi_, yi_)
             if step % args.print_every == 0 or step == args.max_iters - 1:
-                group_acc = jnp.mean(groupi_ == i)
                 print(
-                    f"Model: {i}, Step: {step}, Group Acc: {group_acc}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}")
-        if step % args.print_every == 0 or step == args.max_iters - 1:
-            tot_group_acc = jnp.mean(groupi == z)
-            print(
-                f"Total Group Acc {tot_group_acc}")
+                    f"Model: {i}, Step: {step}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}")
+    print(models[0].layers[0].weight[:,0])
+    print(models[1].layers[0].weight[:,0])
 
 
 def main():

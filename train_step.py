@@ -6,6 +6,22 @@ from model import FNN
 from spinn import all_pen_loss, grad_loss
 
 
+@eqx.filter_jit
+def clip_gradient(grads):
+    leaves, treedef = jtu.tree_flatten(
+        grads, is_leaf=lambda x: isinstance(x, eqx.nn.Linear)
+    )
+    new_leaves = []
+    for leaf in leaves:
+        if isinstance(leaf, eqx.nn.Linear):
+            lim = 0.01
+            leaf = eqx.tree_at(
+                lambda x: x.weight, leaf, leaf.weight.clip(-lim, lim)
+            )
+        new_leaves.append(leaf)
+    return jtu.tree_unflatten(treedef, new_leaves)
+
+
 def make_step(model: FNN, optim, opt_state, x, y):
     loss, grads = grad_loss(model, x, y)
     updates, opt_state = optim.update(grads, opt_state)

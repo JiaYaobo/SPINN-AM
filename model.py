@@ -2,6 +2,7 @@ from typing import Sequence, Callable
 
 import jax.nn as jnn
 import jax.random as jrand
+import jax.tree_util as jtu
 from jax import jit
 import equinox as eqx
 import equinox.nn as nn
@@ -109,3 +110,18 @@ class FNN(eqx.Module):
         x = self.layers[-1](x)
         x = self.final_activation(x)
         return x
+
+    @eqx.filter_jit
+    def clip_weights(self):
+        leaves, treedef = jtu.tree_flatten(
+            self, is_leaf=lambda x: isinstance(x, eqx.nn.Linear)
+        )
+        new_leaves = []
+        for leaf in leaves:
+            if isinstance(leaf, eqx.nn.Linear):
+                lim = 1 / leaf.out_features
+                leaf = eqx.tree_at(
+                    lambda x: x.weight, leaf, leaf.weight.clip(-lim, lim)
+                )
+            new_leaves.append(leaf)
+        return jtu.tree_unflatten(treedef, new_leaves)
