@@ -63,22 +63,32 @@ def train(args):
         opt_states.append(opt_state)
         optims.append(optim)
 
-    x, y, group = get_dataset(args.num_p, args.num_groups, [5000, 5000], func_list=[
+    x, y, group = get_dataset(args.num_p, args.num_groups, [2000, 2000], func_list=[
                               six_variable_multivar_func, six_variable_additive_func])
+    
+    def train_mixed_models_with_single_sample(xi, yi, groupi, z):
+        all_loss, smooth_loss, unpen_loss, models[z], opt_states[z] = make_step_adam_prox(
+            models[z], optims[z], opt_states[z], xi, yi)
+        if step % args.print_every == 0 or step == args.max_iters - 1:
+                print(
+                f"Model: {z}, batch_size: {1} Step: {step}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}")
 
-    for step, (xi, yi, groupi) in zip(range(args.max_iters), dataloader(
-            [x, y, group], args.batch_size, key=loader_key)
-    ):
-        z = allocate_model(models, xi, yi)
+    def train_mixed_models_with_batch(xi, yi, groupi, z):
         for i in range(args.num_groups):
             xi_, yi_, groupi_ = collect_data_groups(i, xi, yi, groupi, z)
             all_loss, smooth_loss, unpen_loss, models[i], opt_states[i] = make_step_adam_prox(
                 models[i], optims[i], opt_states[i], xi_, yi_)
             if step % args.print_every == 0 or step == args.max_iters - 1:
-                print(
-                    f"Model: {i}, Step: {step}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}")
-    print(models[0].layers[0].weight[:,0])
-    print(models[1].layers[0].weight[:,0])
+                 print(
+                    f"Model: {i}, batch_size: {groupi_.size} Step: {step}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}")
+
+    for step, (xi, yi, groupi) in zip(range(args.max_iters), dataloader(
+            [x, y, group], args.batch_size, key=loader_key)
+    ):
+        # z = allocate_model(models, xi, yi)
+        # train_mixed_models_with_batch(xi, yi, groupi, z)
+        z = allocate_model(models, xi, yi)[0]
+        train_mixed_models_with_single_sample(xi, yi, groupi, z)
 
 
 def main():

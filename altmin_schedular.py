@@ -14,13 +14,12 @@ def allocate_model(models: Sequence[FNN], x, y):
 
     @eqx.filter_jit
     def _allocate_model(models: Sequence[FNN], xi, yi):
-        abs_err = jnp.array(jtu.tree_map(lambda i: jnp.abs(models[i](xi) - yi), seq))
+        abs_err = jnp.array(jtu.tree_map(
+            lambda i: jnp.abs(models[i](xi) - yi), seq))
         return jnp.argmin(abs_err)
-    
+
     return vmap(_allocate_model, in_axes=(None, 0, 0))(models, x, y)
 
 
 def collect_data_groups(which_group, x, y, group, z):
-    return x[z==which_group, ], y[z==which_group, ], group[z==which_group, ]    
-
-
+    return x[z == which_group, ], y[z == which_group, ], group[z == which_group, ]

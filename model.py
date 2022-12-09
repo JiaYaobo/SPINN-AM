@@ -61,7 +61,7 @@ class FNN(eqx.Module):
         if isinstance(layer_sizes, int):
             if layer_nums is None:
                 ValueError(
-                    "Layer Nums mustbe specified when layer_sizes is int")
+                    "Layer nums must be specified when layer_sizes is int")
             self.layer_sizes = [layer_sizes] * layer_nums
         else:
             self.layer_sizes = layer_sizes
