@@ -22,6 +22,7 @@ def clip_gradient(grads):
     return jtu.tree_unflatten(treedef, new_leaves)
 
 
+@eqx.filter_jit
 def make_step(model: FNN, optim, opt_state, x, y):
     loss, grads = grad_loss(model, x, y)
     updates, opt_state = optim.update(grads, opt_state)
@@ -29,6 +30,7 @@ def make_step(model: FNN, optim, opt_state, x, y):
     return None, None, loss, model, opt_state
 
 
+@eqx.filter_jit
 def make_step_adam_prox(model: FNN, optim, opt_state, x, y):
     all_loss, smooth_loss, unpen_loss, grads = all_pen_loss(
         model, x, y)
@@ -57,6 +59,7 @@ def make_step_adam_prox(model: FNN, optim, opt_state, x, y):
     return all_loss, smooth_loss, unpen_loss, model, opt_state
 
 
+@eqx.filter_jit
 def make_step_prox(model: FNN, learn_rate, x, y):
     all_loss, smooth_loss, unpen_loss, grads = all_pen_loss(
         model, x, y)
