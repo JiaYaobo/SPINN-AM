@@ -134,7 +134,3 @@ class FNN(eqx.Module):
     def support(self,threshold=1e-6):
         norms = self.input_layer_norm()
         return jnp.sum(norms > threshold)
-
-    def print_input_layer(self, threshold=1e-6):
-        w = self.layers[0].weight
-        return  (w[:,0], w[:,1])

@@ -4,7 +4,7 @@ from typing import Sequence
 import numpy as np
 import jax.numpy as jnp
 import jax.random as jrand
-import jax.test_util as jtu
+import jax.tree_util as jtu
 import equinox as eqx
 import optax
 
@@ -13,7 +13,7 @@ from train_step import make_step_adam_prox, make_step_prox
 from data_gen.data_gen_funs import six_variable_linear_func1, last_six_variable_linear_func2
 from data_gen.data_generator import DataGenerator
 from data_gen.dataloader import dataloader
-from altmin_schedular import allocate_model, collect_data_groups
+from altmin_schedular import allocate_model, collect_data_groups, batch_warmup
 
 
 
@@ -76,29 +76,46 @@ def train(args):
                 f"Model: {z}, batch_size: {1} Step: {step}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}")
 
     def train_mixed_models_with_batch(xi, yi, groupi, z):
+        lr = args.adam_learn_rate
+        flag = -1
         for i in range(args.num_groups):
+            if flag == 1:
+                break
+            if models[i].support() == 0:
+                flag += 1
+                continue
             xi_, yi_, groupi_ = collect_data_groups(i, xi, yi, groupi, z)
-            all_loss, smooth_loss, unpen_loss, models[i], opt_states[i] = make_step_adam_prox(
-                models[i], optims[i], opt_states[i], xi_, yi_)
+            all_loss, smooth_loss, unpen_loss, models[i], opt_states[i], lr = make_step_adam_prox(
+                models[i], optims[i], opt_states[i], xi_, yi_, lr)
             if step % args.print_every == 0 or step == args.max_iters - 1:
                  print(
-                    f"Model: {i}, batch_size: {groupi_.size} Step: {step}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}")
-    lr = args.init_learn_rate
+                    f"Model: {i}, batch_size: {groupi_.size} Step: {step}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}, support: {models[i].support()}")
+            
+
+    # lr = args.init_learn_rate
     for step, (xi, yi, groupi) in zip(range(args.max_iters), dataloader(
             [x, y, group], args.batch_size, key=loader_key)
     ):
-        z = allocate_model(models, xi, yi)
-        for i in range(args.num_groups):
-            xi_, yi_, groupi_ = collect_data_groups(i, xi, yi, groupi, z)
-            all_loss, smooth_loss, unpen_loss, models[i], = make_step_prox(
-                models[i], lr, xi_, yi_)
-            if step % args.print_every == 0 or step == args.max_iters - 1:
-                 print(
-                    f"Model: {i}, batch_size: {groupi_.size} Step: {step}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}, Support: {models[i].support()}")
-        lr = lr * 0.99
+        # if step == 0:
+        #     z = batch_warmup(args.num_groups, xi, yi)
+        # else:
+        #     z = allocate_model(models, xi, yi)
+        # for i in range(args.num_groups):
+        #     xi_, yi_, groupi_ = collect_data_groups(i, xi, yi, groupi, z)
+        #     all_loss, smooth_loss, unpen_loss, models[i], = make_step_prox(
+        #         models[i], lr, xi_, yi_)
+        #     if step % args.print_every == 0 or step == args.max_iters - 1:
+        #          print(
+        #             f"Model: {i}, batch_size: {groupi_.size} Step: {step}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}, Support: {models[i].support()}")
+        # lr = lr * 0.98
         # train_mixed_models_with_batch(xi, yi, groupi, z)
         # z = allocate_model(models, xi, yi)[0]
         # train_mixed_models_with_single_sample(xi, yi, groupi, z)
+        z = allocate_model(models, xi, yi)
+        train_mixed_models_with_batch(xi, yi, groupi, z)
+    print("Stop training")
+    for i in range(args.num_groups):
+        print(f"Model: {i}, support: {models[i].support()}")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -106,8 +123,8 @@ def main():
                         nargs='+',  type=int, required=True)
     parser.add_argument('--data-classes', type=int, default=1)
     parser.add_argument('--layer-nums', type=int)
-    parser.add_argument('--init-learn-rate', type=float, default=1e-1)
-    parser.add_argument('--adam-learn-rate', type=float, default=1e-2)
+    parser.add_argument('--init-learn-rate', type=float, default=1e-3)
+    parser.add_argument('--adam-learn-rate', type=float, default=1e-3)
     parser.add_argument('--adam-epsilon', type=float, default=1e-8)
     parser.add_argument('--is-relu', type=int, default=0, choices=[0, 1])
     parser.add_argument('--use-bias', action='store_true')

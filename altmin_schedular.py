@@ -10,9 +10,8 @@ from sklearn.cluster import KMeans
 from model import FNN
 
 
-def batch_warmup(models: Sequence[FNN], x, y):
-    k = len(models)
-    kms = KMeans(n_clusters=k)
+def batch_warmup(n_groups, x, y):
+    kms = KMeans(n_clusters=n_groups)
     data = np.hstack([x, y])
     kms.fit(data)
     return jnp.array(kms.labels_)
