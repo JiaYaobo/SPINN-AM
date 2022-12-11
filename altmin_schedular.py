@@ -4,8 +4,14 @@ import jax.numpy as jnp
 import jax.tree_util as jtu
 from jax import vmap
 import equinox as eqx
+from sklearn.cluster import KMeans
 
 from model import FNN
+
+
+
+def batch_warmup(models: Sequence[FNN], x, y, n_groups):
+    pass
 
 
 def allocate_model(models: Sequence[FNN], x, y):

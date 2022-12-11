@@ -34,12 +34,12 @@ def six_variable_nn_func(xs):
     return np.tanh(xs[:, 0] + 2 * xs[:, 1] - 3 * xs[:, 2] + 2 * xs[:, 3]) - 2 * np.tanh(xs[:, 0] - xs[:, 4] + 2 * xs[:, 5]) + np.tanh(-xs[:, 1] - xs[:, 2] + xs[:, 3] - xs[:, 5]) + np.tanh(xs[:, 4] - 0.5 * xs[:, 2] + 0.5 * xs[:, 5])
 
 
-def six_varaible_linear_func1(xs):
+def six_variable_linear_func1(xs):
     return 2 * xs[:, 0] + 3 * xs[:, 1] - 10 * xs[:, 2] + 7 * xs[:, 3] - xs[:, 4] + xs[:, 5]
 
 
-def six_varaible_linear_func2(xs):
-    return 10 * xs[:, 0] - 10 * xs[:, 1] + 2 * xs[:, 2] + xs[:, 3] - 3 * xs[:, 4] - 6 * xs[:, 5]
+def last_six_variable_linear_func2(xs):
+    return 10 * xs[:, -1] - 10 * xs[:, -2] + 2 * xs[:, -3] + xs[:, -4] - 3 * xs[:, -5] - 6 * xs[:, -6]
 
 
 """

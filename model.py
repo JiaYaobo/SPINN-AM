@@ -125,3 +125,7 @@ class FNN(eqx.Module):
                 )
             new_leaves.append(leaf)
         return jtu.tree_unflatten(treedef, new_leaves)
+
+    def print_input_layer(self, threshold=1e-6):
+        w = self.layers[0].weight
+        print(w[0, 0], w[0, 1])
