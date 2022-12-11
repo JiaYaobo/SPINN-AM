@@ -1,6 +1,7 @@
 import jax.numpy as jnp
 import jax.tree_util as jtu
 import equinox as eqx
+import jax
 
 from model import FNN
 from spinn import all_pen_loss, grad_loss
@@ -39,7 +40,6 @@ def make_step_adam_prox(model: FNN, optim, opt_state, x, y):
    # do proximal gradient step
     values, treedef = jtu.tree_flatten(updates)
     adam_weights = values[0]
-
     # Do proximal gradient for lasso: soft threshold
     weights = model.layers[0].weight
     weigths_updated = jnp.multiply(jnp.sign(weights), jnp.maximum(
@@ -48,7 +48,8 @@ def make_step_adam_prox(model: FNN, optim, opt_state, x, y):
     # do proximal gradient step for group lasso
     group_norms = 1e-10 + jnp.linalg.norm(weights, axis=1).reshape(-1, 1)
     group_lasso_scale_factor = jnp.maximum(
-        1 - model.group_lasso_param * adam_weights / group_norms, 0)
+        1 - model.group_lasso_param * jnp.abs(adam_weights) / group_norms, 0)
+
     weights_updated = jnp.multiply(group_lasso_scale_factor, weigths_updated)
 
     # update model
@@ -63,8 +64,8 @@ def make_step_adam_prox(model: FNN, optim, opt_state, x, y):
 def make_step_prox(model: FNN, learn_rate, x, y):
     all_loss, smooth_loss, unpen_loss, grads = all_pen_loss(
         model, x, y)
-    updates = jtu.tree_map(lambda x: model.lasso_param * learn_rate * x, grads)
-    model = eqx.apply_updates(model, updates)
+    updates = jtu.tree_map(lambda g: learn_rate * g, grads)
+    # model = eqx.apply_updates(model, updates)
     # do proximal gradient step
     values, treedef = jtu.tree_flatten(updates)
 
@@ -79,8 +80,6 @@ def make_step_prox(model: FNN, learn_rate, x, y):
         1 - model.group_lasso_param * learn_rate / group_norms, 0).reshape(-1, 1)
     weights_updated = jnp.multiply(group_lasso_scale_factor, weigths_updated)
 
-    for i in range(len(values)):
-        values[i] = jnp.zeros_like(values[i])
 
     values[0] = weights_updated - weights
     updates = jtu.tree_unflatten(treedef, values)

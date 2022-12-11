@@ -3,15 +3,19 @@ from typing import Sequence
 import jax.numpy as jnp
 import jax.tree_util as jtu
 from jax import vmap
+import numpy as np
 import equinox as eqx
 from sklearn.cluster import KMeans
 
 from model import FNN
 
 
-
-def batch_warmup(models: Sequence[FNN], x, y, n_groups):
-    pass
+def batch_warmup(models: Sequence[FNN], x, y):
+    k = len(models)
+    kms = KMeans(n_clusters=k)
+    data = np.hstack([x, y])
+    kms.fit(data)
+    return jnp.array(kms.labels_)
 
 
 def allocate_model(models: Sequence[FNN], x, y):

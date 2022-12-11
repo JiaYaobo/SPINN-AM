@@ -1,4 +1,5 @@
 import argparse
+from typing import Sequence
 
 import numpy as np
 import jax.numpy as jnp
@@ -8,13 +9,12 @@ import equinox as eqx
 import optax
 
 from model import FNN
-from train_step import make_step_adam_prox
+from train_step import make_step_adam_prox, make_step_prox
 from data_gen.data_gen_funs import six_variable_linear_func1, last_six_variable_linear_func2
 from data_gen.data_generator import DataGenerator
 from data_gen.dataloader import dataloader
 from altmin_schedular import allocate_model, collect_data_groups
 
-from typing import Sequence
 
 
 def get_dataset(num_p, num_groups, n_obs, func_list):
@@ -68,7 +68,7 @@ def train(args):
     x, y, group = get_dataset(args.num_p, args.num_groups, [2000, 2000], func_list=[
                              six_variable_linear_func1, last_six_variable_linear_func2])
     
-    def train_mixed_models_with_single_sample(xi, yi, groupi, z):
+    def train_mixed_models_with_single_sample_adam(xi, yi, groupi, z):
         all_loss, smooth_loss, unpen_loss, models[z], opt_states[z] = make_step_adam_prox(
             models[z], optims[z], opt_states[z], xi, yi)
         if step % args.print_every == 0 or step == args.max_iters - 1:
@@ -83,23 +83,22 @@ def train(args):
             if step % args.print_every == 0 or step == args.max_iters - 1:
                  print(
                     f"Model: {i}, batch_size: {groupi_.size} Step: {step}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}")
-
+    lr = args.init_learn_rate
     for step, (xi, yi, groupi) in zip(range(args.max_iters), dataloader(
             [x, y, group], args.batch_size, key=loader_key)
     ):
         z = allocate_model(models, xi, yi)
         for i in range(args.num_groups):
             xi_, yi_, groupi_ = collect_data_groups(i, xi, yi, groupi, z)
-            all_loss, smooth_loss, unpen_loss, models[i], opt_states[i] = make_step_adam_prox(
-                models[i], optims[i], opt_states[i], xi_, yi_)
+            all_loss, smooth_loss, unpen_loss, models[i], = make_step_prox(
+                models[i], lr, xi_, yi_)
             if step % args.print_every == 0 or step == args.max_iters - 1:
                  print(
-                    f"Model: {i}, batch_size: {groupi_.size} Step: {step}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}")
+                    f"Model: {i}, batch_size: {groupi_.size} Step: {step}, All Loss: {all_loss}, Smooth Loss: {smooth_loss}, Unpen Loss: {unpen_loss}, Support: {models[i].support()}")
+        lr = lr * 0.99
         # train_mixed_models_with_batch(xi, yi, groupi, z)
         # z = allocate_model(models, xi, yi)[0]
         # train_mixed_models_with_single_sample(xi, yi, groupi, z)
-    print(models[0].print_input_layer())
-    print(models[1].print_input_layer())
 
 def main():
     parser = argparse.ArgumentParser()

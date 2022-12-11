@@ -1,6 +1,7 @@
 from typing import Sequence, Callable
 
 import jax.nn as jnn
+import jax.numpy as jnp
 import jax.random as jrand
 import jax.tree_util as jtu
 from jax import jit
@@ -125,7 +126,15 @@ class FNN(eqx.Module):
                 )
             new_leaves.append(leaf)
         return jtu.tree_unflatten(treedef, new_leaves)
+    
+    def input_layer_norm(self) -> jnp.ndarray:
+        w = self.layers[0].weight
+        return jnp.sum(jnp.abs(w), axis=0) 
+    
+    def support(self,threshold=1e-6):
+        norms = self.input_layer_norm()
+        return jnp.sum(norms > threshold)
 
     def print_input_layer(self, threshold=1e-6):
         w = self.layers[0].weight
-        print(w[0, 0], w[0, 1])
+        return  (w[:,0], w[:,1])
