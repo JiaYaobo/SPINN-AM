@@ -77,9 +77,9 @@ def train(args):
 
     def train_mixed_models_with_batch(xi, yi, groupi, z):
         lr = args.adam_learn_rate
-        flag = -1
+        flag = 0
         for i in range(args.num_groups):
-            if flag == 1:
+            if flag == args.num_groups:
                 break
             if models[i].support() == 0:
                 flag += 1
@@ -96,10 +96,10 @@ def train(args):
     for step, (xi, yi, groupi) in zip(range(args.max_iters), dataloader(
             [x, y, group], args.batch_size, key=loader_key)
     ):
-        # if step == 0:
-        #     z = batch_warmup(args.num_groups, xi, yi)
-        # else:
-        #     z = allocate_model(models, xi, yi)
+        if step == 0:
+            z = batch_warmup(args.num_groups, xi, yi)
+        else:
+            z = allocate_model(models, xi, yi)
         # for i in range(args.num_groups):
         #     xi_, yi_, groupi_ = collect_data_groups(i, xi, yi, groupi, z)
         #     all_loss, smooth_loss, unpen_loss, models[i], = make_step_prox(
@@ -111,7 +111,7 @@ def train(args):
         # train_mixed_models_with_batch(xi, yi, groupi, z)
         # z = allocate_model(models, xi, yi)[0]
         # train_mixed_models_with_single_sample(xi, yi, groupi, z)
-        z = allocate_model(models, xi, yi)
+        # z = allocate_model(models, xi, yi)
         train_mixed_models_with_batch(xi, yi, groupi, z)
     print("Stop training")
     for i in range(args.num_groups):
@@ -124,7 +124,7 @@ def main():
     parser.add_argument('--data-classes', type=int, default=1)
     parser.add_argument('--layer-nums', type=int)
     parser.add_argument('--init-learn-rate', type=float, default=1e-3)
-    parser.add_argument('--adam-learn-rate', type=float, default=1e-3)
+    parser.add_argument('--adam-learn-rate', type=float, default=1e-2)
     parser.add_argument('--adam-epsilon', type=float, default=1e-8)
     parser.add_argument('--is-relu', type=int, default=0, choices=[0, 1])
     parser.add_argument('--use-bias', action='store_true')

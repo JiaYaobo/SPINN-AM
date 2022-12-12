@@ -33,7 +33,6 @@ def make_step(model: FNN, optim, opt_state, x, y):
 
 @eqx.filter_jit
 def make_step_adam_prox(model: FNN, optim, opt_state, x, y, lr=0.01):
-    lr = lr * (1 - 0.999) / (1 - 0.99)
     all_loss, smooth_loss, unpen_loss, grads = all_pen_loss(
         model, x, y)
     updates, opt_state = optim.update(grads, opt_state)
@@ -42,7 +41,7 @@ def make_step_adam_prox(model: FNN, optim, opt_state, x, y, lr=0.01):
     adam_weights = jtu.tree_flatten(opt_state[0].adam_weights)[0][0] * lr
     # Do proximal gradient for lasso: soft threshold
     weights = model.layers[0].weight
-    weigths_updated = jnp.multiply(jnp.sign(weights), jnp.maximum(
+    weights_updated = jnp.multiply(jnp.sign(weights), jnp.maximum(
         jnp.abs(weights) - model.lasso_param * adam_weights, 0))
 
     # do proximal gradient step for group lasso
@@ -50,12 +49,14 @@ def make_step_adam_prox(model: FNN, optim, opt_state, x, y, lr=0.01):
     group_lasso_scale_factor = jnp.maximum(
         1 - model.group_lasso_param * adam_weights / group_norms, 0)
 
-    weights_updated = jnp.multiply(group_lasso_scale_factor, weigths_updated)
+    weights_updated = jnp.multiply(group_lasso_scale_factor, weights_updated)
 
     # update model
     values[0] = weights_updated - weights
     updates = jtu.tree_unflatten(treedef, values)
     model = eqx.apply_updates(model, updates)
+
+    lr = lr * 0.99
 
     return all_loss, smooth_loss, unpen_loss, model, opt_state, lr
 
